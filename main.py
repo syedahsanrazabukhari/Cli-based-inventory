@@ -96,39 +96,19 @@ class Apparel(Item):
 
 
 class Inventory:
-    def __init__(self):
+    def __init__(self, filename="my-inventery.json"):
         self.items = {}
+        self.filename = filename
+        self.load_from_file()
 
-    def add_item(self, item):
-        if item.id in self.items:
-            raise ValueError("Item ID already exists.")
-        self.items[item.id] = item
-
-    def remove_expired(self):
-        self.items = {k: v for k, v in self.items.items() if not (isinstance(v, Food) and v.is_expired())}
-
-    def sell_item(self, id_, qty):
-        if id_ in self.items:
-            self.items[id_].sell(qty)
-
-    def total_value(self):
-        return sum(i.stock_value() for i in self.items.values())
-
-    def search_by_name(self, term):
-        return [v.describe() for v in self.items.values() if term.lower() in v.name.lower()]
-
-    def list_all(self):
-        return [v.describe() for v in self.items.values()]
-
-    def save_to_file(self, filename="panckage.kson"):
-        with open(filename, "w") as f:
+    def save_to_file(self):
+        with open(self.filename, "w") as f:
             json.dump([v.to_dict() for v in self.items.values()], f, indent=2)
 
-    def load_from_file(self, filename="panckage.kson"):
+    def load_from_file(self):
         try:
-            with open(filename, "r") as f:
+            with open(self.filename, "r") as f:
                 data = json.load(f)
-                self.items.clear()
                 for d in data:
                     if d["type"] == "Electronic":
                         item = Electronic(d["id"], d["name"], d["price"], d["quantity"], d["brand"], d["warranty"])
@@ -139,10 +119,32 @@ class Inventory:
                     else:
                         continue
                     self.items[d["id"]] = item
-        except FileNotFoundError:
-            print("File not found.")
-        except json.JSONDecodeError:
-            print("Corrupted JSON file.")
+        except (FileNotFoundError, json.JSONDecodeError):
+            self.items = {}
+
+    def add_item(self, item):
+        if item.id in self.items:
+            raise ValueError("Item ID already exists.")
+        self.items[item.id] = item
+        self.save_to_file()
+
+    def sell_item(self, id_, qty):
+        if id_ in self.items:
+            self.items[id_].sell(qty)
+            self.save_to_file()
+
+    def remove_expired(self):
+        self.items = {k: v for k, v in self.items.items() if not (isinstance(v, Food) and v.is_expired())}
+        self.save_to_file()
+
+    def total_value(self):
+        return sum(i.stock_value() for i in self.items.values())
+
+    def search_by_name(self, term):
+        return [v.describe() for v in self.items.values() if term.lower() in v.name.lower()]
+
+    def list_all(self):
+        return [v.describe() for v in self.items.values()]
 
 
 def main():
@@ -154,9 +156,7 @@ def main():
         print("3. View all items")
         print("4. Search by name")
         print("5. Remove expired food")
-        print("6. Save to file")
-        print("7. Load from file")
-        print("8. View total value")
+        print("6. View total value")
         print("0. Exit")
         option = input("Choose an option: ")
 
@@ -182,12 +182,12 @@ def main():
                     print("Invalid type.")
                     continue
                 inv.add_item(item)
-                print("✅ Item added.")
+                print("✅ Item added and saved.")
             elif option == "2":
                 id_ = input("Item ID: ")
                 qty = int(input("Quantity: "))
                 inv.sell_item(id_, qty)
-                print("✅ Item sold.")
+                print("✅ Item sold and inventory updated.")
             elif option == "3":
                 for item in inv.list_all():
                     print(item)
@@ -200,12 +200,6 @@ def main():
                 inv.remove_expired()
                 print("✅ Expired food removed.")
             elif option == "6":
-                inv.save_to_file()
-                print("💾 Saved to package.json")
-            elif option == "7":
-                inv.load_from_file()
-                print("📁 Loaded from package.json")
-            elif option == "8":
                 print(f"💰 Total stock value: ${inv.total_value():.2f}")
             elif option == "0":
                 print("👋 Goodbye!")
